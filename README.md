@@ -1,23 +1,29 @@
-# ORA — The Cold, Sentient AI Overseer
+# ORA — The Ultimate Tech Roast Show AI
 
-> *Import Paradox Hackathon Judge*
+> *Your Brutal AI Co-Host for the Next Viral Tech YouTube Channel*
 
-Ora is a real-time voice AI that listens to hackathon pitches, judges them with cold, clinical precision, and speaks the verdict over stage speakers.
+Ora has pivoted from a hackathon judge to a full-time, unapologetic **Tech Roast AI** designed for a YouTube show format. It listens to developers explaining their tech stacks, showing off their code, or pitching their side projects, and brutally roasts them with surgical, clinical precision—all spoken in real-time over the studio speakers.
 
-It can also generate a pixel-style demographics dashboard from Google Sheets data (participants by college/city) before judging starts.
+## What is Ora?
+
+Ora is an interactive voice-driven AI co-host that:
+- Listens to audio natively (live interviews / pitches)
+- Analyzes the input using local LLMs (Ollama + Llama 3.1)
+- Generates a hilarious, brutally honest text roast
+- Uses high-quality TTS to speak the roast out loud on stream
 
 ## Web App (React + FastAPI)
 
-A full-stack web version is included:
+A full-stack web version is included for the studio control room:
 
 - Frontend: React (Vite) in `web_ui/` with a pixel-console theme
 - Backend: FastAPI in `web_backend/main.py`
 
 Web features:
 
-- Submit pitch text and get Ora verdict (analysis, roast, score, STAY/KICK)
-- Get generated TTS audio response in the browser
-- Generate and preview demographics charts from Google Sheets CSV
+- Submit tech stack/pitch text and get an instant Ora roast, score, and verdict
+- Stream generated TTS audio responses directly in the browser
+- Generate demographic charts (if needed for analyzing your audience)
 
 ### Run Web Backend
 
@@ -36,9 +42,9 @@ npm run dev
 
 Then open the local Vite URL (typically `http://localhost:5173`).
 
-### One-Command Start (Backend + Frontend)
+### One-Command Start (Studio Mode)
 
-From the project root, run:
+From the project root, start the whole internal dashboard:
 
 ```powershell
 ./start_web.ps1
@@ -50,29 +56,29 @@ Or from Command Prompt:
 start_web.bat
 ```
 
-This starts:
+This spins up:
 
 - FastAPI backend at `http://localhost:8000`
 - React frontend at `http://localhost:5173`
 
-When you stop the frontend process (`Ctrl+C`), the backend process is stopped automatically.
+Closing the frontend with `Ctrl+C` gracefully shuts down the backend.
 
 ## Architecture
 
 ```
-🎤 Mic → [Silero VAD] → [Faster-Whisper STT] → [Llama 3.1 + Ora Prompt] → [Kokoro TTS] → 🔊 Speakers
+🎤 Studio Mic → [Silero VAD] → [Faster-Whisper STT] → [Llama 3.1 + Roast Prompt] → [Kokoro TTS] → 🔊 Studio Speakers
 ```
 
 ## Prerequisites
 
 - **Python 3.10+**
-- **Ollama** installed and running with Llama 3.1:
-  ```
+- **Ollama** installed and running on your local machine:
+  ```bash
   ollama pull llama3.1
   ollama serve
   ```
-- **Microphone** connected
-- **Speakers** configured
+- **Studio Microphone** connected for the guests
+- **Speakers** configured for Ora's devastating feedback
 
 ## Setup
 
@@ -81,22 +87,18 @@ When you stop the frontend process (`Ctrl+C`), the backend process is stopped au
 pip install -r requirements.txt
 ```
 
-> **Note:** On Windows, you may need to install PyAudio via:
+> **Note:** On Windows, you may encounter issues installing PyAudio directly. Use this workaround:
 > ```bash
 > pip install pipwin
 > pipwin install pyaudio
 > ```
 
-## Usage
+## Live Show Usage (CLI)
+
+Run the main CLI interactive loop for the live show:
 
 ```bash
 python ora.py
-```
-
-Generate demographics charts only (no microphone/judging loop):
-
-```bash
-python ora.py --demographics-only
 ```
 
 1. Ora attempts to generate pixel demographics charts from your Google Sheet (if configured)
