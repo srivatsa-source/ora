@@ -1,0 +1,148 @@
+﻿@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+  --bg: #101820;
+  --bg-alt: #1f2b38;
+  --card: #243447;
+  --line: #f7c948;
+  --text: #f4efe6;
+  --muted: #93a4b5;
+  --kick: #ff4d6d;
+  --stay: #7bd389;
+  --accent: #4ea8de;
+}
+
+body {
+  margin: 0;
+  font-family: 'Press Start 2P', cursive;
+  color: var(--text);
+  background: radial-gradient(circle at 10% 10%, #23395d 0%, var(--bg) 45%),
+    linear-gradient(135deg, #182635 0%, #0f1720 100%);
+  min-height: 100vh;
+}
+
+.page-bg {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* NES.css dark theme overrides */
+.nes-container.is-dark {
+  background-color: var(--card);
+}
+.nes-textarea, .nes-input {
+  background-color: var(--bg);
+  color: var(--text);
+}
+.nes-textarea:focus, .nes-input:focus {
+  outline: 2px solid var(--accent);
+}
+
+.scanlines {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.12;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 3px,
+    rgba(255, 255, 255, 0.6) 4px
+  );
+}
+
+.wrapper {
+  width: min(1100px, 94vw);
+  margin: 0 auto;
+  padding: 50px 0 40px;
+  position: relative;
+  z-index: 2;
+}
+
+.hero h1 {
+  margin: 16px 0 20px;
+  letter-spacing: 1px;
+  line-height: 1.5;
+  font-size: 1.5rem;
+}
+
+.grid-2 {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.stack {
+  display: grid;
+  gap: 20px;
+}
+
+h2 {
+  margin-top: 0;
+  font-size: 1.2rem;
+  line-height: 1.5;
+}
+
+.result-panel p {
+  margin: 12px 0;
+  line-height: 1.4;
+  font-size: 0.8rem;
+}
+
+.face-visual {
+  font-family: monospace;
+  font-size: 4rem;
+  margin: 0;
+  line-height: 1;
+}
+
+.verdict {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 20px !important;
+}
+
+.audio {
+  width: 100%;
+  margin-top: 15px;
+}
+
+.chart-grid {
+  margin-top: 25px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.chart-card img {
+  width: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.chart-card a {
+  display: inline-block;
+  margin-top: 15px;
+  font-size: 0.7rem;
+}
+
+@media (max-width: 900px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.nes-table.is-dark td, .nes-table.is-dark th { border-color: #555; padding: 8px; }
+
+.nes-table.is-dark th { background-color: #111; color: #f7c948; }
+
+.hover-bar { opacity: 0.85; transition: opacity 0.2s, transform 0.2s; }
+
+.hover-bar:hover { opacity: 1; transform: translateX(4px); }
+
+.nes-table.is-dark td, .nes-table.is-dark th { border-color: #555; padding: 8px; }
+.nes-table.is-dark th { background-color: #111; color: #f7c948; }
+.hover-bar { opacity: 0.85; transition: opacity 0.2s, transform 0.2s; }
+.hover-bar:hover { opacity: 1; transform: translateX(4px); }
