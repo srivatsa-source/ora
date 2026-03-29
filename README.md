@@ -8,7 +8,7 @@ Ora has pivoted from a hackathon judge to a full-time, unapologetic **Tech Roast
 
 Ora is an interactive voice-driven AI co-host that:
 - Listens to audio natively (live interviews / pitches)
-- Analyzes the input using local LLMs (Ollama + Llama 3.1)
+- Analyzes the input using local LLMs (Ollama + Qwen2.5-Coder:3b)
 - Generates a hilarious, brutally honest text roast
 - Uses high-quality TTS to speak the roast out loud on stream
 
@@ -66,7 +66,7 @@ Closing the frontend with `Ctrl+C` gracefully shuts down the backend.
 ## Architecture
 
 ```
-🎤 Studio Mic → [Silero VAD] → [Faster-Whisper STT] → [Llama 3.1 + Roast Prompt] → [Kokoro TTS] → 🔊 Studio Speakers
+🎤 Studio Mic → [Silero VAD] → [Faster-Whisper STT] → [Qwen2.5-Coder:3b + Roast Prompt] → [Kokoro TTS] → 🔊 Studio Speakers
 ```
 
 ## Prerequisites
@@ -74,7 +74,7 @@ Closing the frontend with `Ctrl+C` gracefully shuts down the backend.
 - **Python 3.10+**
 - **Ollama** installed and running on your local machine:
   ```bash
-  ollama pull llama3.1
+  ollama pull qwen2.5-coder:3b
   ollama serve
   ```
 - **Studio Microphone** connected for the guests

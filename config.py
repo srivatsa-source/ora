@@ -43,7 +43,7 @@ WHISPER_COMPUTE_TYPE = "int8"    # int8 for CPU, float16 for CUDA
 WHISPER_BEAM_SIZE = 3
 
 # ─── LLM Settings ─────────────────────────────────────────────────────
-OLLAMA_MODEL = "llama3.1"
+OLLAMA_MODEL = "qwen2.5-coder:3b"
 OLLAMA_TEMPERATURE = 0       # Deterministic for consistent JSON
 OLLAMA_BASE_URL = "http://localhost:11434"
 

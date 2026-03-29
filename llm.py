@@ -1,6 +1,6 @@
 """
 Ora — LLM Brain
-Uses Ollama with Llama 3.1 to generate Ora's cold, elitist judgments.
+Uses Ollama with Qwen 2.5 Coder 3B to generate Ora's cold, elitist judgments.
 """
 
 import json
