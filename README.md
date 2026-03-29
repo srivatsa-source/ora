@@ -1,6 +1,6 @@
 # ORA — The Ultimate Tech Roast Show AI
 
-> *Your Brutal AI Co-Host for the Next Viral Tech YouTube Channel*
+> *Your Brutal AI Co-Host *
 
 Ora has pivoted from a hackathon judge to a full-time, unapologetic **Tech Roast AI** designed for a YouTube show format. It listens to developers explaining their tech stacks, showing off their code, or pitching their side projects, and brutally roasts them with surgical, clinical precision—all spoken in real-time over the studio speakers.
 
