@@ -95,9 +95,11 @@ async def upload_demographics(file: UploadFile = File(...)) -> dict:
         report = generate_demographics_report(csv_url=temp_path)
         return report
     finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-
+        try:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+        except Exception as e:
+            print(f"Cleanup error: {e}")
 
 @app.post("/api/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)) -> dict:
@@ -111,5 +113,8 @@ async def transcribe_audio(file: UploadFile = File(...)) -> dict:
         text = transcribe(temp_path)
         return {"text": text}
     finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        try:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+        except Exception as e:
+            print(f"Cleanup error: {e}")

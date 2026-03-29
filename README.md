@@ -102,7 +102,7 @@ python ora.py
 ```
 
 1. Ora attempts to generate pixel demographics charts from your Google Sheet (if configured)
-2. Ora initializes all models (first run downloads Kokoro & Whisper weights)
+2. Ora initializes all models (first run automatically downloads Kokoro TTS weights (~350MB) & Whisper STT weights)
 3. Ora listens for speech via your microphone
 4. When you stop talking (~1.5s silence), Ora processes your pitch
 5. Verdict is printed to console and spoken aloud (with snarky comments)

@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useRef } from "react";
+﻿import { useMemo, useState, useRef, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 
 const initialResult = {
@@ -7,228 +7,163 @@ const initialResult = {
 };
 
 function RoastPage() {
-  const [name, setName] = useState("");
-  const [project, setProject] = useState("");
-  const [stack, setStack] = useState("");
-  const [defense, setDefense] = useState("");
-  
-  const [judging, setJudging] = useState(false);
-  const [judgeResult, setJudgeResult] = useState(initialResult);
-  const [revealedVerdict, setRevealedVerdict] = useState("");
+  const [phase, setPhase] = useState("listening"); // listening, analyzing, done, error
+  const [judgeResult, setJudgeResult] = useState({ roast: "", verdict: "" });
   const [audioUrl, setAudioUrl] = useState("");
-  const [judgeError, setJudgeError] = useState("");
-
-  const [isRecording, setIsRecording] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  const toggleRecording = async () => {
-    if (isRecording) {
-      if (mediaRecorderRef.current) {
-        mediaRecorderRef.current.stop();
-        setIsRecording(false);
-      }
-      return;
-    }
+  useEffect(() => {
+    let recorder = null;
+    let timer = null;
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
+    async function initMic() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        mediaRecorderRef.current = recorder;
+        audioChunksRef.current = [];
 
-      mediaRecorder.ondataavailable = e => {
-        if (e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
-        }
-      };
+        recorder.ondataavailable = e => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
 
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        
-        // Stop all tracks to turn off the microphone light
-        stream.getTracks().forEach(track => track.stop());
-
-        setTranscribing(true);
-        try {
-          const formData = new FormData();
-          formData.append("file", audioBlob, "recording.webm");
+        recorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          stream.getTracks().forEach(track => track.stop());
           
-          const res = await fetch("/api/transcribe", {
-            method: "POST",
-            body: formData
-          });
+          setPhase("analyzing");
+          handleSpeechAndRoast(audioBlob);
+        };
 
-          if (!res.ok) throw new Error("Transcription failed.");
-
-          const data = await res.json();
-          if (data.text) {
-            setDefense(prev => prev ? prev + " " + data.text : data.text);
+        recorder.start();
+        
+        // Auto stop after 3 minutes
+        timer = setTimeout(() => {
+          if (recorder.state !== "inactive") {
+            recorder.stop();
           }
-        } catch (err) {
-          console.error("STT Error:", err);
-          setJudgeError("Microphone processing failed: " + String(err));
-        } finally {
-          setTranscribing(false);
-        }
-      };
+        }, 180000); 
 
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error("Mic access denied:", err);
-      setJudgeError("Could not access microphone.");
-    }
-  };
-
-  const verdictClass = useMemo(() => {
-    if (revealedVerdict === "STAY") return "nes-text is-success";
-    if (revealedVerdict === "KICK") return "nes-text is-error";
-    return "nes-text is-warning";
-  }, [revealedVerdict]);
-
-  async function onJudge(e) {
-    e.preventDefault();
-    setJudging(true);
-    setJudgeError("");
-    setJudgeResult(initialResult);
-    setRevealedVerdict("");
-    setAudioUrl("");
-
-    const combinedPitch = `Name: ${name}\nProject: ${project}\nTech Stack: ${stack}\nDefense: ${defense}`;
-
-    try {
-      const response = await fetch("/api/judge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pitch_text: combinedPitch,
-          include_tts_audio: true
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error("Judge API failed");
+      } catch (err) {
+        console.error("Mic error:", err);
+        setErrorMsg("Could not access microphone.");
+        setPhase("error");
       }
-
-      const data = await response.json();
-      setJudgeResult(data.result || initialResult);
-
-      if (data.audio_base64 && data.audio_mime) {
-        const bytes = atob(data.audio_base64);
-        const arr = new Uint8Array(bytes.length);
-        for (let i = 0; i < bytes.length; i += 1) {
-          arr[i] = bytes.charCodeAt(i);
-        }
-        const blob = new Blob([arr], { type: data.audio_mime });
-        const url = URL.createObjectURL(blob);
-        setAudioUrl(url);
-      }
-    } catch (err) {
-      setJudgeError(String(err));
-    } finally {
-      setJudging(false);
     }
+    
+    initMic();
+
+    return () => {
+       if (recorder && recorder.state !== "inactive") {
+           recorder.stop();
+       }
+       if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  async function handleSpeechAndRoast(audioBlob) {
+     try {
+        let transcript = "";
+        const formData = new FormData();
+        formData.append("file", audioBlob, "recording.webm");
+        
+        // 1. Transcribe using backend
+        const sttRes = await fetch("/api/transcribe", { method: "POST", body: formData });
+        
+        if (sttRes.ok) {
+           const data = await sttRes.json();
+           transcript = data.text;
+        } else {
+           throw new Error("Transcription API Failed. Make sure ffmpeg is installed system-wide.");
+        }
+
+        if (!transcript || transcript.trim() === "") {
+           transcript = "They stayed perfectly silent. The fear must have got to them.";
+        }
+
+        // Remove spaces inside JSON before sending since Ollama gets picky sometimes
+        const judgeRes = await fetch("/api/judge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pitch_text: transcript, include_tts_audio: true })
+        });
+        
+        if (!judgeRes.ok) throw new Error("Judging API failed.");
+        const jData = await judgeRes.json();
+        
+        setJudgeResult(jData.result || { roast: "Error", verdict: "KICK" });
+        if (jData.audio_base64 && jData.audio_mime) {
+            const bytes = atob(jData.audio_base64);
+            const arr = new Uint8Array(bytes.length);
+            for (let i=0; i<bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+            const blob = new Blob([arr], { type: jData.audio_mime });
+            setAudioUrl(URL.createObjectURL(blob));
+        }
+        setPhase("done");
+     } catch (err) {
+        console.error("Pipeline Error:", err);
+        setErrorMsg(String(err));
+        setPhase("error");
+     }
   }
 
-  // Determine which face to show based on state
-  let currentFace = "( -_- )";
-  let faceColor = "#f4efe6";
+  // UI rendering based on phase
+  let faceColor = "#ff4d6d"; // Creepy red by default
+  let face = "( O _ O )";
+  let statusText = "Listening directly to your soul... (Auto-roast after 3 min)";
   
-  if (judging) {
-    currentFace = "( ¬_¬ )";
-    faceColor = "#f7c948";
-  } else if (judgeResult.roast && !revealedVerdict) {
-    currentFace = "( <_> )"; // Listening / speaking face
-    faceColor = "#4ea8de";
-  } else if (revealedVerdict === "STAY") {
-    currentFace = "( ⌐■_■ )";
-    faceColor = "#7bd389";
-  } else if (revealedVerdict === "KICK") {
-    currentFace = "( ಠ_ಠ )";
-    faceColor = "#ff4d6d";
+  if (phase === "analyzing") { 
+     face = "( -_ - )"; 
+     statusText = "Judging your pathetic existence..."; 
+     faceColor = "#f7c948"; 
+  } else if (phase === "done") { 
+     face = judgeResult.verdict === "STAY" ? "( ⌐■_■ )" : "( ಠ_ಠ )";
+     faceColor = judgeResult.verdict === "STAY" ? "#7bd389" : "#ff4d6d"; 
+     statusText = "";
+  } else if (phase === "error") { 
+     face = "( x_x )"; 
+     statusText = errorMsg; 
+     faceColor = "#93a4b5"; 
   }
 
   return (
-    <section className="nes-container is-dark with-title grid-2" style={{ marginTop: '20px' }}>
-      <p className="title">Hackathon Roast</p>
-      <div className="nes-container is-rounded is-dark">
-        <h2>Victim Profile</h2>
-        <form onSubmit={onJudge} className="stack">
-          
-          <div className="nes-field">
-            <label htmlFor="name_field" style={{ color: "#f7c948" }}>Participant Name</label>
-            <input type="text" id="name_field" className="nes-input is-dark" value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. Chad Founder" />
+    <section className="nes-container is-dark" style={{ marginTop: '40px', minHeight: '70vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+       
+       <pre style={{ fontSize: '6rem', color: faceColor, transition: 'color 0.5s', margin: '0', textShadow: `0px 0px 20px ${faceColor}44` }}>
+          {face}
+       </pre>
+       
+       {statusText && (
+         <h2 style={{ color: faceColor, marginTop: '40px', fontWeight: 'bold' }}>{statusText}</h2>
+       )}
+       
+       {phase === "listening" && (
+           <button 
+             className="nes-btn is-error" 
+             style={{ marginTop: '30px' }}
+             onClick={() => mediaRecorderRef.current?.stop()}
+           >
+              Stop & Roast Prematurely
+           </button>
+       )}
+
+       {phase === "done" && (
+          <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
+            <p style={{ fontSize: '1.5rem', lineHeight: '1.8', color: '#fff', marginTop: '40px' }}>{judgeResult.roast}</p>
+            <h1 style={{ fontSize: '4rem', color: faceColor, letterSpacing: '8px', margin: '30px 0' }}>[ {judgeResult.verdict} ]</h1>
+            
+            {audioUrl && <audio autoPlay src={audioUrl} controls style={{ width: '100%', marginBottom: '20px' }} />}
+            
+            <button className="nes-btn is-primary" onClick={() => window.location.reload()} style={{ marginTop: '20px' }}>
+               Process Another Victim
+            </button>
           </div>
-
-          <div className="nes-field">
-            <label htmlFor="project_field" style={{ color: "#f7c948" }}>Idea / Project</label>
-            <input type="text" id="project_field" className="nes-input is-dark" value={project} onChange={(e) => setProject(e.target.value)} required placeholder="e.g. Tinder for Dogs" />
-          </div>
-
-          <div className="nes-field">
-            <label htmlFor="stack_field" style={{ color: "#f7c948" }}>Tech Stack</label>
-            <input type="text" id="stack_field" className="nes-input is-dark" value={stack} onChange={(e) => setStack(e.target.value)} required placeholder="e.g. React, Firebase, 18 APIs" />
-          </div>
-
-          <div className="nes-field">
-            <label htmlFor="defense_field" style={{ color: "#f7c948", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span>Their Weak Defense</span>
-              <button 
-                type="button" 
-                onClick={toggleRecording} 
-                className={`nes-btn ${isRecording ? 'is-error' : 'is-success'}`}
-                style={{ fontSize: "0.7rem", padding: "4px 8px" }}
-                disabled={transcribing}
-              >
-                {transcribing ? "Transcribing..." : isRecording ? "⏹ Stop" : "🎤 Mic"}
-              </button>
-            </label>
-            <textarea id="defense_field" className="nes-textarea is-dark" rows="3" value={defense} onChange={(e) => setDefense(e.target.value)} required placeholder="Why shouldn't we kick your team?" />
-          </div>
-
-          <button className={`nes-btn ${judging || !name.trim() || !project.trim() ? "is-disabled" : "is-primary"}`} type="submit" disabled={judging || !name.trim() || !project.trim()}>
-            {judging ? "Processing..." : "Generate Roast"}
-          </button>
-        </form>
-        {judgeError ? <p className="nes-text is-error">{judgeError}</p> : null}
-      </div>
-
-      <div className="result-panel nes-container is-rounded is-dark">
-        <h2>System Output</h2>
-        <div style={{ textAlign: "center", marginBottom: "20px", marginTop: "20px" }}>
-          <pre className="face-visual" style={{ color: faceColor, transition: "color 0.4s" }}>
-            {currentFace}
-          </pre>
-        </div>
-        
-        <div style={{ minHeight: "100px", marginBottom: "20px" }}>
-          <p style={{ lineHeight: "1.6" }}>
-            <strong>Roast:</strong> {judgeResult.roast || "Waiting for target..."}
-          </p>
-        </div>
-
-        <div style={{ textAlign: "center", minHeight: "60px" }}>
-          <p className={`verdict ${verdictClass}`} style={{ fontSize: "2rem", letterSpacing: "4px" }}>
-            {judgeResult.roast && !revealedVerdict ? "[ SUSPENSE... ]" : (revealedVerdict ? `[ ${revealedVerdict} ]` : "[ - ]")}
-          </p>
-        </div>
-
-        {audioUrl ? (
-          <audio 
-            className="audio" 
-            controls 
-            autoPlay 
-            src={audioUrl} 
-            onEnded={() => setRevealedVerdict(judgeResult.verdict)}
-          />
-        ) : (
-          <p className="hint nes-text is-disabled" style={{ textAlign: "center" }}>Audio will auto-play upon judging...</p>
-        )}
-      </div>
+       )}
     </section>
-  );
+  )
 }
 
 function DemographicsPage() {
@@ -331,31 +266,88 @@ function DemographicsPage() {
              <button className="nes-btn is-error" onClick={() => setCharts([])}>Reset Data</button>
           </div>
 
-          <div className="chart-grid" style={{ marginTop: '20px' }}>
+          <div className="chart-grid" style={{ display: 'flex', flexDirection: 'column', gap: '50vh', marginTop: '50px' }}>
             {charts.map((c) => {
-              const maxVal = Math.max(...c.data.map(d => d.value));
+              const maxVal = Math.max(1, ...c.data.map(d => d.value));
+              // Ensure we have a reasonable y-axis step
+              const yAxisSteps = [0, Math.ceil(maxVal * 0.25), Math.ceil(maxVal * 0.5), Math.ceil(maxVal * 0.75), maxVal];
+              
               return (
-                <div className="chart-card nes-container is-rounded is-dark" key={c.column}>
-                  <p style={{ color: "#f7c948", fontSize: "14px", marginBottom: "15px" }}>[{c.title}]</p>
-                  {c.data.map(item => {
-                      const widthPct = (item.value / maxVal) * 100;
-                      return (
-                        <div 
-                          key={item.label} 
-                          style={{ cursor: 'pointer', marginBottom: '15px' }} 
-                          onClick={() => handleBarClick(c.column, item.label)}
-                          className="hover-bar"
-                        >
-                           <div style={{ display:'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '4px' }}>
-                              <span>{item.label}</span>
-                              <span>{item.value}</span>
-                           </div>
-                           <div style={{ width: '100%', backgroundColor: '#111', height: '20px', border: '2px solid #333' }}>
-                              <div style={{ width: `${widthPct}%`, backgroundColor: c.color, height: '100%', transition: 'width 0.3s' }} />
-                           </div>
-                        </div>
-                      )
-                  })}
+                <div key={c.column} style={{ 
+                  width: '100%', 
+                  height: '80vh', 
+                  backgroundColor: '#000', 
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: '20px 40px 60px 80px', // Extra left padding for Y-axis, bottom for X-axis
+                  boxSizing: 'border-box',
+                  border: '4px solid #fff'
+                }}>
+                  <h2 style={{ color: '#fff', textAlign: 'center', marginBottom: '40px', fontSize: '2rem', textTransform: 'capitalize' }}>
+                    {c.title}
+                  </h2>
+
+                  {/* Y-axis labels */}
+                  <div style={{ position: 'absolute', left: '10px', top: '100px', bottom: '60px', display: 'flex', flexDirection: 'column-reverse', justifyContent: 'space-between', color: '#fff', fontSize: '1rem', width: '60px', alignItems: 'flex-end', paddingRight: '10px' }}>
+                    {yAxisSteps.map((step, i) => (
+                      <span key={i}>{step}</span>
+                    ))}
+                  </div>
+                  
+                  {/* Y-axis line */}
+                  <div style={{ position: 'absolute', left: '80px', top: '100px', bottom: '60px', width: '2px', backgroundColor: '#fff' }} />
+                  {/* X-axis line */}
+                  <div style={{ position: 'absolute', left: '80px', right: '40px', bottom: '60px', height: '2px', backgroundColor: '#fff' }} />
+
+                  {/* Bars container */}
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', position: 'relative', zIndex: 1, marginLeft: '10px', overflowX: 'auto', overflowY: 'hidden' }}>
+                    {c.data.map(item => {
+                        const heightPct = maxVal === 0 ? 0 : (item.value / maxVal) * 100;
+                        return (
+                          <div 
+                            key={item.label} 
+                            style={{ 
+                              display: 'flex', 
+                              flexDirection: 'column', 
+                              alignItems: 'center', 
+                              height: '100%', 
+                              justifyContent: 'flex-end',
+                              flex: 1,
+                              minWidth: '50px', // Prevent bars from getting too squished in large datasets
+                              margin: '0 10px',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => handleBarClick(c.column, item.label)}
+                          >
+                            <div style={{ 
+                               width: '100%', 
+                               maxWidth: '120px', 
+                               height: `${Math.max(1, heightPct)}%`, 
+                               backgroundColor: '#d32f2f', // Red bars like the image
+                               position: 'relative',
+                               transition: 'height 0.3s',
+                               border: '2px solid rgba(0,0,0,0.5)'
+                            }}>
+                              <div style={{ position: 'absolute', top: '-30px', width: '100%', textAlign: 'center', color: '#fff', fontSize: '1.2rem' }}>
+                                {item.value}
+                              </div>
+                            </div>
+                            <div style={{ 
+                              marginTop: '20px', 
+                              color: '#fff', 
+                              fontSize: '1rem', 
+                              textAlign: 'center',
+                              wordWrap: 'break-word',
+                              maxWidth: '100%',
+                              lineHeight: '1.2'
+                            }}>
+                              {item.label}
+                            </div>
+                          </div>
+                        )
+                    })}
+                  </div>
                 </div>
               )
             })}
@@ -400,10 +392,10 @@ function NavMenu() {
   return (
     <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'center' }}>
       <Link to="/">
-        <button className={`nes-btn ${location.pathname === '/' ? 'is-primary' : ''}`}>AI Roast</button>
+        <button className={`nes-btn`} style={{ backgroundColor: location.pathname === '/' ? '#ff4d6d' : '#ffffff', color: location.pathname === '/' ? '#ffffff' : '#000000' }}>AI Roast</button>
       </Link>
       <Link to="/demographics">
-        <button className={`nes-btn ${location.pathname === '/demographics' ? 'is-primary' : ''}`}>Demographics Graphs</button>
+        <button className={`nes-btn`} style={{ backgroundColor: location.pathname === '/demographics' ? '#ff4d6d' : '#ffffff', color: location.pathname === '/demographics' ? '#ffffff' : '#000000' }}>Demographics Graphs</button>
       </Link>
     </div>
   );
